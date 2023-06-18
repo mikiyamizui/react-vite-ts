@@ -1,5 +1,4 @@
-/** @type {import("prettier").Config} */
-const config = {
+module.exports = /** @type {import("prettier").Config} */ ({
   printWidth: 120,
   tabWidth: 2,
   useTabs: false,
@@ -15,6 +14,4 @@ const config = {
   htmlWhitespaceSensitivity: "css",
   endOfLine: "lf",
   singleAttributePerLine: true,
-};
-
-module.exports = config;
+});

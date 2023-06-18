@@ -1,5 +1,4 @@
-/** @type {import("eslint").Linter.BaseConfig} */
-const config = {
+module.exports = /** @type {import("eslint").Linter.BaseConfig} */ ({
   root: true,
   parser: "@typescript-eslint/parser",
   parserOptions: {
@@ -32,6 +31,4 @@ const config = {
   rules: {
     "no-console": ["warn"],
   },
-};
-
-module.exports = config;
+});
