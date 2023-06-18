@@ -1,4 +1,4 @@
-module.exports = /** @type {import("eslint").Linter.BaseConfig} */ ({
+module.exports = /** @type {import("eslint").Linter.Config} */ ({
   root: true,
   parser: "@typescript-eslint/parser",
   parserOptions: {
@@ -25,10 +25,19 @@ module.exports = /** @type {import("eslint").Linter.BaseConfig} */ ({
     // "plugin:unicorn/recommended",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
-    "plugin:jest/recommended",
   ],
   plugins: ["@typescript-eslint"],
   rules: {
     "no-console": ["warn"],
   },
+  overrides: [
+    {
+      files: ["**/*.test.ts?(x)"],
+      extends: ["plugin:jest/recommended"],
+    },
+    {
+      files: ["**/*.stories.ts?(x)"],
+      extends: ["plugin:storybook/recommended"],
+    },
+  ],
 });
