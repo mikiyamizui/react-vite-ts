@@ -30,7 +30,7 @@ jobs:
       - run: npx jest --colors --coverage --coverageDirectory coverage --passWithNoTests
       - uses: actions/upload-artifact@v3
         with:
-          name: jest-coverage
+          name: coverage-jest.json
           path: coverage/coverage-final.json
 
   storybook:
@@ -66,7 +66,7 @@ jobs:
           "wait-on tcp:6006 && npx test-storybook --coverage --browsers chromium"
       - uses: actions/upload-artifact@v3
         with:
-          name: storybook-coverage
+          name: coverage-storybook.json
           path: coverage/storybook/coverage-storybook.json
 
   coverage:
@@ -79,12 +79,12 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
-          name: jest-coverage
+          name: coverage-jest.json
           path: coverage
         continue-on-error: true
       - uses: actions/download-artifact@v3
         with:
-          name: storybook-coverage
+          name: coverage-storybook.json
           path: coverage
         continue-on-error: true
       - run: npx nyc report --reporter=lcov -t coverage --report-dir coverage
