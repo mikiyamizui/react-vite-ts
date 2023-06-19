@@ -85,13 +85,12 @@ jobs:
         run: |
           git config --local user.name "${{ github.workflow }}"
           git config --local user.email ""
-      - run: git add docs
+          git add docs
       - run: |
-          echo << EOF > commit-message
-          ${{ env.ref }} (${{ github.event_name }}:${{ github.event.action }})
-      - run: echo "* ${{ env.branch-url }}/coverage" >> commit-message
-        if: needs.test.result == 'success'
-      - run: echo "* ${{ env.branch-url }}/storybook" >> commit-message
-        if: needs.storybook.result == 'success'
+          cat << EOF > commit-message
+          ${{ env.ref }}
+          * ACTION: https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/actions/runs/${{ github.run_id }}
+          * ${{ (needs.test.result && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/coverage
+          * ${{ (needs.storybook.result && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/storybook
       - run: git commit -F commit-message
       - run: git push origin ${{ env.branch-name }}
