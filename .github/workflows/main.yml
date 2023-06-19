@@ -1,3 +1,5 @@
+name: main
+
 on:
   pull_request:
     types: [opened, synchronize, closed]
@@ -8,7 +10,7 @@ env:
   ref: ${{ github.head_ref || github.ref_name }}
 
 jobs:
-  test:
+  run-jest:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
@@ -28,10 +30,10 @@ jobs:
       - run: npx jest --colors --coverage --coverageDirectory coverage --passWithNoTests
       - uses: actions/upload-artifact@v3
         with:
-          name: test
-          path: coverage/lcov-report
+          name: jest-coverage
+          path: coverage/coverage-final.json
 
-  storybook:
+  build-storybook:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
@@ -51,11 +53,72 @@ jobs:
       - run: npx storybook build
       - uses: actions/upload-artifact@v3
         with:
-          name: storybook
+          name: build-storybook
           path: storybook-static
 
-  github-pages:
-    needs: [test, storybook]
+  test-storybook:
+    needs: [build-storybook]
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: node
+      - uses: actions/cache@v3
+        id: cache_node_modules
+        with:
+          path: "**/node_modules"
+          key: node_modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/package-lock.json') }}
+      - run: npm ci
+        if: ${{ steps.cache_node_modules.outputs.cache-hit != 'true' }}
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-storybook
+          path: storybook-static
+        if: needs.build-storybook.result == 'success'
+      - run: >
+          npx concurrently
+          -k
+          -s first
+          -n "storybook,test"
+          -c "magenta,blue"
+          "npx http-server storybook-static --port 6006 --silent"
+          "wait-on tcp:6006 && npx test-storybook --coverage --browsers chromium"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: storybook-coverage
+          path: coverage/storybook/coverage-storybook.json
+
+  build-coverage:
+    needs: [run-jest, test-storybook]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: jest-coverage
+          path: coverage
+        continue-on-error: true
+      - uses: actions/download-artifact@v3
+        with:
+          name: storybook-coverage
+          path: coverage
+        continue-on-error: true
+      - run: npx nyc report --reporter=lcov -t coverage --report-dir coverage
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-coverage
+          path: coverage/lcov-report
+
+  update-github-pages:
+    needs: [build-coverage, build-storybook]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -73,24 +136,28 @@ jobs:
       - run: rm -rf ${{ env.branch-dir }}
       - uses: actions/download-artifact@v3
         with:
-          name: test
+          name: build-coverage
           path: ${{ env.branch-dir }}/coverage
-        if: needs.test.result == 'success'
+        if: needs.build-coverage.result == 'success'
       - uses: actions/download-artifact@v3
         with:
-          name: storybook
+          name: build-storybook
           path: ${{ env.branch-dir }}/storybook
-        if: needs.storybook.result == 'success'
-      - name: git config
+        if: needs.build-storybook.result == 'success'
+      - run: git diff --exit-code
+        id: git-diff
+        continue-on-error: true
+      - name: git commit and push
+        if: steps.git-diff.outcome == 'failure'
         run: |
           git config --local user.name "${{ github.workflow }}"
           git config --local user.email ""
           git add docs
-      - run: |
           cat << EOF > commit-message
           ${{ env.ref }}
           * ACTION: https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/actions/runs/${{ github.run_id }}
-          * ${{ (needs.test.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/coverage
-          * ${{ (needs.storybook.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/storybook
-      - run: git commit -F commit-message
-      - run: git push origin ${{ env.branch-name }}
+          * ${{ (needs.build-coverage.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/coverage
+          * ${{ (needs.build-storybook.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/storybook
+          EOF
+          git commit -F commit-message
+          git push origin ${{ env.branch-name }}
