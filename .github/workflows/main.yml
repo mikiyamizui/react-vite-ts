@@ -86,7 +86,9 @@ jobs:
           git config --local user.name "${{ github.workflow }}"
           git config --local user.email ""
       - run: git add docs
-      - run: echo "${{ env.ref }}" > commit-message
+      - run: |
+          echo << EOF > commit-message
+          ${{ env.ref }} (${{ github.event_name }}:${{ github.event.action }})
       - run: echo "* ${{ env.branch-url }}/coverage" >> commit-message
         if: needs.test.result == 'success'
       - run: echo "* ${{ env.branch-url }}/storybook" >> commit-message
