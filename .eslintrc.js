@@ -27,6 +27,7 @@ module.exports = /** @type {import("eslint").Linter.Config} */ ({
     "plugin:react-hooks/recommended",
   ],
   plugins: ["@typescript-eslint"],
+  ignorePatterns: ["!.storybook"],
   rules: {
     "no-console": ["warn"],
   },
