@@ -1,0 +1,1 @@
+{"v":3,"stories":{"app--normal":{"id":"app--normal","title":"App","name":"Normal","importPath":"./src/App.stories.tsx","tags":["story"],"kind":"App","story":"Normal","parameters":{"__id":"app--normal","docsOnly":false,"fileName":"./src/App.stories.tsx"}}}}
