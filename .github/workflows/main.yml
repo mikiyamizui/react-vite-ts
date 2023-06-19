@@ -1,0 +1,94 @@
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  ref: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  test:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: node
+      - uses: actions/cache@v3
+        id: cache_node_modules
+        with:
+          path: "**/node_modules"
+          key: node_modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/package-lock.json') }}
+      - run: npm ci
+        if: ${{ steps.cache_node_modules.outputs.cache-hit != 'true' }}
+      - run: npx jest --colors --coverage --coverageDirectory coverage --passWithNoTests
+      - uses: actions/upload-artifact@v3
+        with:
+          name: test
+          path: coverage/lcov-report
+
+  storybook:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: node
+      - uses: actions/cache@v3
+        id: cache_node_modules
+        with:
+          path: "**/node_modules"
+          key: node_modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/package-lock.json') }}
+      - run: npm ci
+        if: ${{ steps.cache_node_modules.outputs.cache-hit != 'true' }}
+      - run: npx storybook build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: storybook
+          path: storybook-static
+
+  github-pages:
+    needs: [test, storybook]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    env:
+      branch-name: github-pages
+      branch-dir: docs/${{ github.head_ref || github.ref_name }}
+      branch-url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.head_ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.branch-name }}
+      - run: rm -rf ${{ env.branch-dir }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: test
+          path: ${{ env.branch-dir }}/coverage
+        if: needs.test.result == 'success'
+      - uses: actions/download-artifact@v3
+        with:
+          name: storybook
+          path: ${{ env.branch-dir }}/storybook
+        if: needs.storybook.result == 'success'
+      - name: git config
+        run: |
+          git config --local user.name "${{ github.workflow }}"
+          git config --local user.email ""
+      - run: git add docs
+      - run: echo "${{ env.ref }}" > commit-message
+      - run: echo "* ${{ env.branch-url }}/coverage" >> commit-message
+        if: needs.test.result == 'success'
+      - run: echo "* ${{ env.branch-url }}/storybook" >> commit-message
+        if: needs.storybook.result == 'success'
+      - run: git commit -F commit-message
+      - run: git push origin ${{ env.branch-name }}
