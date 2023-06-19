@@ -90,7 +90,7 @@ jobs:
           cat << EOF > commit-message
           ${{ env.ref }}
           * ACTION: https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/actions/runs/${{ github.run_id }}
-          * ${{ (needs.test.result && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/coverage
-          * ${{ (needs.storybook.result && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/storybook
+          * ${{ (needs.test.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/coverage
+          * ${{ (needs.storybook.result == 'success' && 'UPDATED') || 'REMOVED' }}: ${{ env.branch-url }}/storybook
       - run: git commit -F commit-message
       - run: git push origin ${{ env.branch-name }}
